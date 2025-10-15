@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envio de mensagens</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fab fa-whatsapp"></i> Envio de mensagens</h1>
+            <p>Envie mensagens em massa para sua lista de contatos do WhatsApp</p>
+        </header>
+
+        <div class="step-indicator">
+            <div class="step active" id="step-1">
+                <div class="step-number">1</div>
+                <div class="step-label">Conexão</div>
+            </div>
+            <div class="step" id="step-2">
+                <div class="step-number">2</div>
+                <div class="step-label">Contatos</div>
+            </div>
+            <div class="step" id="step-3">
+                <div class="step-number">3</div>
+                <div class="step-label">Mensagem</div>
+            </div>
+            <div class="step" id="step-4">
+                <div class="step-number">4</div>
+                <div class="step-label">Envio</div>
+            </div>
+        </div>
+
+        <main>
+            <!-- Seção de Conexão -->
+            <section class="card connection-section" id="connection-card">
+                <h2><i class="fas fa-link"></i> Conexão com a Evolution API</h2>
+                
+                <div class="connection-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="connection-status-text">Desconectado</span>
+                </div>
+                
+                <div id="connection-buttons">
+                    <p>Clique no botão abaixo para gerar o QR Code e conectar sua instância.</p>
+                    <button id="connect-btn">
+                        <i class="fas fa-qrcode"></i> Conectar e Gerar QR Code
+                    </button>
+                </div>
+                
+                <div id="qrcode-container" class="hidden">
+                    <p>Leia o QR Code com o seu WhatsApp para conectar.</p>
+                    <div id="qrcode"></div>
+                    <small id="instance-status-detail">Aguardando leitura do QR Code...</small>
+                    <button id="refresh-qr-btn" class="btn-secondary" style="margin-top: 15px;">
+                        <i class="fas fa-sync-alt"></i> Atualizar QR Code
+                    </button>
+                </div>
+
+                <div id="connected-info" class="hidden">
+                    <p class="success-message"><i class="fas fa-check-circle"></i> Conectado com sucesso!</p>
+                    <button id="disconnect-btn" class="btn-danger">
+                        <i class="fas fa-power-off"></i> Desconectar
+                    </button>
+                </div>
+            </section>
+
+            <!-- Seção de Contatos -->
+            <section class="card hidden" id="contacts-card">
+                <h2><i class="fas fa-users"></i> Carregar Contatos</h2>
+                 <div class="template-download">
+                    <p>Não tem um modelo? Baixe o nosso.</p>
+                    <a href="modela envio.xlsx - Página1.csv" download="modelo_envio.csv" class="btn-secondary btn-small">
+                        <i class="fas fa-download"></i> Baixar Modelo CSV
+                    </a>
+                </div>
+                <div class="form-group">
+                    <label for="file-input">Selecione o arquivo com seus contatos:</label>
+                    <div class="file-upload-area" id="file-drop-area">
+                        <i class="fas fa-file-excel"></i>
+                        <p>Arraste seu arquivo CSV ou Excel aqui ou clique para selecionar</p>
+                        <p class="file-info">Formatos aceitos: .csv, .xls, .xlsx</p>
+                        <input type="file" id="file-input" accept=".csv, .xls, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" hidden>
+                    </div>
+                    <div id="file-selected" class="hidden" style="margin-top: 15px;">
+                        <p><i class="fas fa-check-circle" style="color: var(--success-color);"></i> Arquivo selecionado: <span id="file-name"></span></p>
+                        <p><span id="contacts-count">0</span> contatos carregados</p>
+                    </div>
+                </div>
+                
+                <div class="table-container hidden" id="contacts-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Telefone</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contacts-table-body">
+                            <!-- Os contatos do CSV serão inseridos aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Seção de Mensagem -->
+            <section class="card hidden" id="message-card">
+                <h2><i class="fas fa-comment"></i> Compor Mensagem</h2>
+                <div class="form-group">
+                    <label for="message-text">Digite sua mensagem:</label>
+                    <textarea id="message-text" rows="6" placeholder="Olá! Esta é uma mensagem de teste."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="delay-time">Intervalo entre envios (segundos):</label>
+                    <input type="number" id="delay-time" min="1" max="60" value="2" style="width: 100px; padding: 8px;">
+                </div>
+                <button id="preview-btn" class="btn-secondary">
+                    <i class="fas fa-eye"></i> Visualizar e Avançar
+                </button>
+            </section>
+
+            <!-- Seção de Envio -->
+            <section class="card hidden" id="send-card">
+                <h2><i class="fas fa-paper-plane"></i> Enviar Mensagens</h2>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress" id="send-progress" style="width: 0%"></div>
+                    </div>
+                    <div class="stats">
+                        <span id="progress-text">0/0 enviados</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                </div>
+                
+                <button id="send-btn" disabled>
+                    <i class="fas fa-play"></i> Iniciar Envio
+                </button>
+                
+                <div class="logs-container">
+                    <div id="logs-content">
+                        <div class="log-entry">
+                            <span class="log-time" id="current-time"></span>
+                            <span class="log-info">Sistema inicializado. Aguardando ação do usuário.</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Bibliotecas para ler arquivos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <script src="script.js" defer></script>
+</body>
+</html>
