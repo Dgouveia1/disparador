@@ -135,8 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             addLog(`Resposta (connect): ${JSON.stringify(data)}`, 'info');
             
-            if (data.qrcode?.base64) {
-                const imgSrc = data.qrcode.base64.startsWith('data:image/png;base64,') ? data.qrcode.base64 : `data:image/png;base64,${data.qrcode.base64}`;
+            // CORREÇÃO: A resposta da API envia o 'base64' no nível raiz do objeto,
+            // e não dentro de um objeto 'qrcode'. A verificação foi ajustada para data.base64.
+            if (data.base64) {
+                const imgSrc = data.base64.startsWith('data:image/png;base64,') ? data.base64 : `data:image/png;base64,${data.base64}`;
                 qrcodeDiv.innerHTML = `<img src="${imgSrc}" alt="QR Code">`;
                 updateConnectionStatusUI('Aguardando QR Code', 'Leia o QR Code com seu WhatsApp.');
             } else {
@@ -428,4 +430,5 @@ document.addEventListener('DOMContentLoaded', () => {
     showStep(1);
     checkConnectionState();
 });
+
 
