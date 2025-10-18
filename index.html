@@ -3,159 +3,481 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Envio de mensagens</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>DisparaZap - Agendador de Mensagens</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #075E54;
+            --secondary-color: #128C7E;
+            --accent-color: #25D366;
+            --light-gray: #F0F2F5;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-color);
+        }
+        .status-agendado { background-color: #3b82f6; color: white; }
+        .status-enviado { background-color: #22c55e; color: white; }
+        .status-erro { background-color: #ef4444; color: white; }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 2rem;
+            height: calc(100vh - 80px);
+        }
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1><i class="fab fa-whatsapp"></i> Envio de mensagens</h1>
-            <p>Envie mensagens em massa para sua lista de contatos do WhatsApp</p>
-        </header>
+<body class="antialiased">
 
-        <div class="step-indicator">
-            <div class="step active" id="step-1">
-                <div class="step-number">1</div>
-                <div class="step-label">Conexão</div>
+    <!-- Header -->
+    <header class="bg-white shadow-md p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-20">
+        <div class="flex items-center gap-3">
+            <i class="fab fa-whatsapp text-4xl" style="color: var(--accent-color);"></i>
+            <h1 class="text-2xl font-bold text-[var(--primary-color)]">DisparaZap</h1>
+        </div>
+    </header>
+
+    <main class="main-grid p-8 pt-24">
+        <!-- Coluna Principal (Agendamentos) -->
+        <div class="flex flex-col gap-4 h-full">
+            <!-- Controles e Botão de Agendamento -->
+            <div class="flex justify-between items-center flex-wrap gap-4">
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div>
+                        <label for="filter-date" class="text-sm font-medium">Filtrar por data:</label>
+                        <input type="date" id="filter-date" class="p-2 border rounded-lg focus:ring-2 focus:ring-[var(--secondary-color)]">
+                    </div>
+                    <div>
+                        <label for="filter-status" class="text-sm font-medium">Filtrar por status:</label>
+                        <select id="filter-status" class="p-2 border rounded-lg focus:ring-2 focus:ring-[var(--secondary-color)]">
+                            <option value="todos">Todos</option>
+                            <option value="agendado" selected>Agendado</option>
+                            <option value="enviado">Enviado</option>
+                            <option value="erro">Erro</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="open-modal-btn" class="bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-transform duration-200 hover:scale-105">
+                    <i class="fas fa-calendar-plus"></i> Agendar Envio
+                </button>
             </div>
-            <div class="step" id="step-2">
-                <div class="step-number">2</div>
-                <div class="step-label">Contatos</div>
-            </div>
-            <div class="step" id="step-3">
-                <div class="step-number">3</div>
-                <div class="step-label">Mensagem</div>
-            </div>
-            <div class="step" id="step-4">
-                <div class="step-number">4</div>
-                <div class="step-label">Envio</div>
+
+            <!-- Tabela de Agendamentos -->
+            <div class="bg-white rounded-lg shadow-md overflow-auto flex-grow">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Data de Envio</th>
+                            <th scope="col" class="px-6 py-3">Telefone</th>
+                            <th scope="col" class="px-6 py-3">Mensagem</th>
+                            <th scope="col" class="px-6 py-3">Status</th>
+                            <th scope="col" class="px-6 py-3 text-right">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agendamentos-table-body">
+                        <!-- Linhas serão inseridas via JS -->
+                         <tr><td colspan="5" class="text-center p-8 text-gray-500">Nenhum agendamento encontrado.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <main>
-            <!-- Seção de Conexão -->
-            <section class="card connection-section" id="connection-card">
-                <h2><i class="fas fa-link"></i> Conexão com a Evolution API</h2>
-                
-                <div class="connection-status">
-                    <div class="status-dot" id="status-dot"></div>
-                    <span id="connection-status-text">Desconectado</span>
-                </div>
-                
-                <div id="connection-buttons">
-                    <p>Clique no botão abaixo para gerar o QR Code e conectar sua instância.</p>
-                    <button id="connect-btn">
-                        <i class="fas fa-qrcode"></i> Conectar e Gerar QR Code
+        <!-- Coluna Direita (Status da Conexão) -->
+        <aside class="bg-white rounded-lg shadow-md p-6 flex flex-col gap-4 overflow-y-auto h-full">
+            <h2 class="text-xl font-bold text-[var(--primary-color)] border-b pb-2">
+                <i class="fas fa-link"></i> Status da Conexão
+            </h2>
+            <div class="flex items-center gap-3 p-3 rounded-lg" id="connection-status-container">
+                <div class="w-4 h-4 rounded-full bg-gray-400 animate-pulse" id="status-dot"></div>
+                <span id="connection-status-text" class="font-semibold">Verificando...</span>
+            </div>
+            
+            <div id="connection-actions">
+                <!-- Botão de conectar -->
+                <div id="connect-button-container">
+                    <p class="text-sm mb-4">Clique no botão para gerar o QR Code e conectar sua instância do WhatsApp.</p>
+                    <button id="connect-btn" class="w-full bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-qrcode"></i> Conectar
                     </button>
                 </div>
                 
-                <div id="qrcode-container" class="hidden">
-                    <p>Leia o QR Code com o seu WhatsApp para conectar.</p>
-                    <div id="qrcode"></div>
-                    <small id="instance-status-detail">Aguardando leitura do QR Code...</small>
-                    <button id="refresh-qr-btn" class="btn-secondary" style="margin-top: 15px;">
-                        <i class="fas fa-sync-alt"></i> Atualizar QR Code
-                    </button>
+                <!-- QR Code -->
+                <div id="qrcode-container" class="hidden text-center">
+                    <p class="text-sm mb-2">Leia o QR Code com seu WhatsApp.</p>
+                    <div id="qrcode" class="p-2 border rounded-lg inline-block bg-white"></div>
+                    <small id="instance-status-detail" class="text-xs text-gray-500 mt-2 block">Aguardando leitura...</small>
                 </div>
-
-                <div id="connected-info" class="hidden">
-                    <p class="success-message"><i class="fas fa-check-circle"></i> Conectado com sucesso!</p>
-                    <button id="disconnect-btn" class="btn-danger">
+                
+                <!-- Informações de Conectado -->
+                 <div id="connected-info" class="hidden text-center p-4 bg-green-100 rounded-lg">
+                    <p class="text-green-800 font-semibold"><i class="fas fa-check-circle"></i> Conectado com sucesso!</p>
+                    <button id="disconnect-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
                         <i class="fas fa-power-off"></i> Desconectar
                     </button>
                 </div>
-            </section>
-
-            <!-- Seção de Contatos -->
-            <section class="card hidden" id="contacts-card">
-                <h2><i class="fas fa-users"></i> Carregar Contatos</h2>
-                 <div class="template-download">
-                    <p>Não tem um modelo? Baixe o nosso.</p>
-                    <a href="modela envio.xlsx - Página1.csv" download="modelo_envio.csv" class="btn-secondary btn-small">
-                        <i class="fas fa-download"></i> Baixar Modelo CSV
-                    </a>
-                </div>
-                <div class="form-group">
-                    <label for="file-input">Selecione o arquivo com seus contatos:</label>
-                    <div class="file-upload-area" id="file-drop-area">
-                        <i class="fas fa-file-excel"></i>
-                        <p>Arraste seu arquivo CSV ou Excel aqui ou clique para selecionar</p>
-                        <p class="file-info">Formatos aceitos: .csv, .xls, .xlsx</p>
-                        <input type="file" id="file-input" accept=".csv, .xls, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" hidden>
-                    </div>
-                    <div id="file-selected" class="hidden" style="margin-top: 15px;">
-                        <p><i class="fas fa-check-circle" style="color: var(--success-color);"></i> Arquivo selecionado: <span id="file-name"></span></p>
-                        <p><span id="contacts-count">0</span> contatos carregados</p>
-                    </div>
-                </div>
-                
-                <div class="table-container hidden" id="contacts-table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Telefone</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="contacts-table-body">
-                            <!-- Os contatos do CSV serão inseridos aqui -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Seção de Mensagem -->
-            <section class="card hidden" id="message-card">
-                <h2><i class="fas fa-comment"></i> Compor Mensagem</h2>
-                <div class="form-group">
-                    <label for="message-text">Digite sua mensagem:</label>
-                    <textarea id="message-text" rows="6" placeholder="Olá! Esta é uma mensagem de teste."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="delay-time">Intervalo entre envios (segundos):</label>
-                    <input type="number" id="delay-time" min="1" max="60" value="2" style="width: 100px; padding: 8px;">
-                </div>
-                <button id="preview-btn" class="btn-secondary">
-                    <i class="fas fa-eye"></i> Visualizar e Avançar
-                </button>
-            </section>
-
-            <!-- Seção de Envio -->
-            <section class="card hidden" id="send-card">
-                <h2><i class="fas fa-paper-plane"></i> Enviar Mensagens</h2>
-                
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div class="progress" id="send-progress" style="width: 0%"></div>
-                    </div>
-                    <div class="stats">
-                        <span id="progress-text">0/0 enviados</span>
-                        <span id="progress-percent">0%</span>
-                    </div>
-                </div>
-                
-                <button id="send-btn" disabled>
-                    <i class="fas fa-play"></i> Iniciar Envio
-                </button>
-                
-                <div class="logs-container">
-                    <div id="logs-content">
-                        <div class="log-entry">
-                            <span class="log-time" id="current-time"></span>
-                            <span class="log-info">Sistema inicializado. Aguardando ação do usuário.</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </main>
-    </div>
-
-    <!-- Bibliotecas para ler arquivos -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+            </div>
+        </aside>
+    </main>
     
-    <script src="script.js" defer></script>
+    <!-- Modal de Agendamento -->
+    <div id="agendamento-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-95 opacity-0" id="modal-content">
+            <div class="flex justify-between items-center border-b pb-4 mb-4">
+                <h3 class="text-2xl font-bold text-[var(--primary-color)]" id="modal-title">Agendar Novo Envio</h3>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-red-600 text-2xl">&times;</button>
+            </div>
+            <form id="agendamento-form">
+                <input type="hidden" id="agendamento-id">
+                <div class="mb-4">
+                    <label for="data-envio" class="block text-sm font-medium mb-1">Data do Envio</label>
+                    <input type="date" id="data-envio" class="w-full p-2 border rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label for="telefone" class="block text-sm font-medium mb-1">Telefone (com DDI e DDD)</label>
+                    <input type="tel" id="telefone" class="w-full p-2 border rounded-lg" placeholder="Ex: 5511999998888" required>
+                </div>
+                <div class="mb-6">
+                    <label for="mensagem" class="block text-sm font-medium mb-1">Mensagem</label>
+                    <textarea id="mensagem" rows="5" class="w-full p-2 border rounded-lg" placeholder="Digite sua mensagem aqui..." required></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-[var(--accent-color)] hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg flex items-center gap-2">
+                        <i class="fas fa-save"></i> Salvar Agendamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- CONFIGURAÇÕES ---
+        // EVOLUTION API
+        const API_URL = 'https://tess-evolution-api.1hldwq.easypanel.host';
+        const API_KEY = '429683C4C977415CAAFCCE10F7D57E11';
+        const INSTANCE_NAME = 'c118c9b2-93e5-4b16-92ab-484358820795';
+
+        // SUPABASE - **SUBSTITUA PELAS SUAS CREDENCIAIS**
+        const SUPABASE_URL = 'https://qqkmcjbzjusmjuyxkkgm.supabase.co'; // Insira a URL do seu projeto
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxa21jamJ6anVzbWp1eXhra2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTk0NDksImV4cCI6MjA3NDIzNTQ0OX0.dg1tiMqRJ1O9yqfKSrVfSoxwcuJpbZkNacCNEgEdjg0'; // Insira sua chave anônima
+
+        // --- INICIALIZAÇÃO DO SUPABASE ---
+        let supabase;
+        try {
+            if (SUPABASE_URL.includes('YOUR_PROJECT_ID') || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')) {
+                 console.warn("Supabase não configurado. As funcionalidades de agendamento estão desabilitadas. Edite as variáveis SUPABASE_URL e SUPABASE_ANON_KEY no código.");
+            } else {
+                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (error) {
+            console.error("Erro ao inicializar o cliente Supabase:", error);
+        }
+        
+        // --- ELEMENTOS DO DOM (GERAL) ---
+        const tableBody = document.getElementById('agendamentos-table-body');
+        const filterDate = document.getElementById('filter-date');
+        const filterStatus = document.getElementById('filter-status');
+        
+        // --- ELEMENTOS DO DOM (MODAL) ---
+        const modal = document.getElementById('agendamento-modal');
+        const modalContent = document.getElementById('modal-content');
+        const openModalBtn = document.getElementById('open-modal-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const agendamentoForm = document.getElementById('agendamento-form');
+        const modalTitle = document.getElementById('modal-title');
+        
+        // --- ELEMENTOS DO DOM (CONEXÃO) ---
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const qrcodeContainer = document.getElementById('qrcode-container');
+        const connectionStatusText = document.getElementById('connection-status-text');
+        const instanceStatusDetail = document.getElementById('instance-status-detail');
+        const statusDot = document.getElementById('status-dot');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const connectButtonContainer = document.getElementById('connect-button-container');
+        const connectedInfo = document.getElementById('connected-info');
+        const connectionStatusContainer = document.getElementById('connection-status-container');
+
+
+        // --- FUNÇÕES DE RENDERIZAÇÃO E FORMATAÇÃO ---
+        const formatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            // Criar o objeto Date a partir da string ISO (que vem como UTC do Supabase)
+            const date = new Date(dateString);
+
+            // Obter os componentes da data em UTC para evitar a conversão para o fuso horário local do navegador
+            const day = String(date.getUTCDate()).padStart(2, '0');
+            const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses são baseados em zero (0-11)
+            const year = date.getUTCFullYear();
+
+            // Retornar a string formatada no padrão brasileiro (apenas data)
+            return `${day}/${month}/${year}`;
+        };
+
+        const renderTable = (agendamentos) => {
+            tableBody.innerHTML = ''; // Limpa a tabela
+            if (!agendamentos || agendamentos.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-500">Nenhum agendamento encontrado para os filtros selecionados.</td></tr>';
+                return;
+            }
+
+            agendamentos.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'bg-white border-b hover:bg-gray-50';
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${formatDate(item.data_envio)}</td>
+                    <td class="px-6 py-4">${item.telefone}</td>
+                    <td class="px-6 py-4 truncate max-w-xs">${item.mensagem}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full status-${item.status}">${item.status}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <button data-id="${item.id}" class="edit-btn text-blue-600 hover:text-blue-800 mr-4"><i class="fas fa-edit"></i></button>
+                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        };
+        
+        // --- MODAL ---
+        const showModal = (isEdit = false) => {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+        };
+        const hideModal = () => {
+             modalContent.classList.add('scale-95', 'opacity-0');
+             setTimeout(() => {
+                modal.classList.add('hidden');
+                agendamentoForm.reset();
+                document.getElementById('agendamento-id').value = '';
+                modalTitle.textContent = 'Agendar Novo Envio';
+            }, 300);
+        };
+
+        openModalBtn.addEventListener('click', () => showModal());
+        closeModalBtn.addEventListener('click', hideModal);
+        modal.addEventListener('click', (e) => {
+             if (e.target === modal) hideModal();
+        });
+        
+        // --- LÓGICA DO SUPABASE (CRUD) ---
+        const fetchAgendamentos = async () => {
+            if(!supabase) return;
+            try {
+                let query = supabase.from('agendamentos').select('*').order('data_envio', { ascending: true });
+                
+                const status = filterStatus.value;
+                if(status && status !== 'todos'){
+                    query = query.eq('status', status);
+                }
+                
+                const date = filterDate.value;
+                if(date){
+                     query = query.gte('data_envio', `${date}T00:00:00`).lte('data_envio', `${date}T23:59:59`);
+                }
+
+                const { data, error } = await query;
+                if (error) throw error;
+                renderTable(data);
+            } catch (error) {
+                console.error('Erro ao buscar agendamentos:', error.message);
+            }
+        };
+        
+        agendamentoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if(!supabase) { alert("Supabase não configurado."); return; }
+
+            const id = document.getElementById('agendamento-id').value;
+            const agendamentoData = {
+                data_envio: document.getElementById('data-envio').value,
+                telefone: document.getElementById('telefone').value,
+                mensagem: document.getElementById('mensagem').value,
+            };
+            
+            try {
+                let error;
+                if (id) { // Atualização
+                    const { error: updateError } = await supabase.from('agendamentos').update(agendamentoData).eq('id', id);
+                    error = updateError;
+                } else { // Inserção
+                    const { error: insertError } = await supabase.from('agendamentos').insert([agendamentoData]);
+                    error = insertError;
+                }
+                
+                if (error) throw error;
+                hideModal();
+                // O fetch não é mais necessário aqui, o realtime cuidará disso.
+            } catch (error) {
+                console.error('Erro ao salvar agendamento:', error.message);
+                alert('Ocorreu um erro ao salvar. Verifique o console.');
+            }
+        });
+
+        tableBody.addEventListener('click', async (e) => {
+            if(!supabase) return;
+
+            const editButton = e.target.closest('.edit-btn');
+            if(editButton) {
+                const id = editButton.dataset.id;
+                const { data, error } = await supabase.from('agendamentos').select('*').eq('id', id).single();
+                if(error) {
+                    console.error("Erro ao buscar para edição:", error);
+                    return;
+                }
+                document.getElementById('agendamento-id').value = data.id;
+                document.getElementById('data-envio').value = data.data_envio.slice(0, 10); // Formato para date
+                document.getElementById('telefone').value = data.telefone;
+                document.getElementById('mensagem').value = data.mensagem;
+                modalTitle.textContent = 'Editar Agendamento';
+                showModal(true);
+            }
+
+            const deleteButton = e.target.closest('.delete-btn');
+            if(deleteButton) {
+                const id = deleteButton.dataset.id;
+                if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+                    const { error } = await supabase.from('agendamentos').delete().eq('id', id);
+                    if (error) {
+                         console.error('Erro ao deletar:', error.message);
+                    }
+                     // O fetch não é mais necessário aqui, o realtime cuidará disso.
+                }
+            }
+        });
+        
+        // --- FILTROS ---
+        filterDate.addEventListener('change', fetchAgendamentos);
+        filterStatus.addEventListener('change', fetchAgendamentos);
+
+        // --- SUPABASE REALTIME ---
+        const setupRealtime = () => {
+            if(!supabase) return;
+            const channel = supabase.channel('public:agendamentos')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, payload => {
+                    console.log('Mudança recebida!', payload);
+                    fetchAgendamentos();
+                })
+                .subscribe();
+        };
+
+        // --- LÓGICA DE CONEXÃO COM A EVOLUTION API ---
+        const updateConnectionStatusUI = (status, detail = '') => {
+            connectionStatusText.textContent = status;
+            instanceStatusDetail.textContent = detail;
+            statusDot.className = 'w-4 h-4 rounded-full'; // Reseta classes
+            connectionStatusContainer.className = 'flex items-center gap-3 p-3 rounded-lg';
+
+            switch (status) {
+                case 'Conectado':
+                    statusDot.classList.add('bg-green-500');
+                    connectionStatusContainer.classList.add('bg-green-100');
+                    connectButtonContainer.classList.add('hidden');
+                    qrcodeContainer.classList.add('hidden');
+                    connectedInfo.classList.remove('hidden');
+                    break;
+                case 'Conectando':
+                case 'Aguardando QR Code':
+                    statusDot.classList.add('bg-yellow-500', 'animate-pulse');
+                    connectionStatusContainer.classList.add('bg-yellow-100');
+                    connectButtonContainer.classList.add('hidden');
+                    qrcodeContainer.classList.remove('hidden');
+                    connectedInfo.classList.add('hidden');
+                    break;
+                case 'Desconectado':
+                case 'Erro':
+                default:
+                    statusDot.classList.add(status === 'Erro' ? 'bg-red-500' : 'bg-gray-400');
+                    connectionStatusContainer.classList.add(status === 'Erro' ? 'bg-red-100' : 'bg-gray-100');
+                    connectButtonContainer.classList.remove('hidden');
+                    qrcodeContainer.classList.add('hidden');
+                    connectedInfo.classList.add('hidden');
+                    break;
+            }
+        };
+
+        const fetchQRCode = async () => {
+            try {
+                updateConnectionStatusUI('Conectando', 'Gerando QR Code...');
+                const response = await fetch(`${API_URL}/instance/connect/${INSTANCE_NAME}`, { headers: { 'apikey': API_KEY } });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                if (data.base64) {
+                    const imgSrc = data.base64.startsWith('data:image/png;base64,') ? data.base64 : `data:image/png;base64,${data.base64}`;
+                    qrcodeDiv.innerHTML = `<img src="${imgSrc}" alt="QR Code">`;
+                    updateConnectionStatusUI('Aguardando QR Code', 'Leia o QR Code com seu WhatsApp.');
+                } else {
+                    throw new Error('QR Code não recebido da API.');
+                }
+            } catch (error) {
+                console.error("Falha ao buscar QR Code:", error);
+                qrcodeDiv.innerHTML = `<p class="text-red-500">Erro ao carregar QR Code.</p>`;
+                updateConnectionStatusUI('Erro', 'Falha ao carregar QR Code.');
+            }
+        };
+
+        const checkConnectionState = async () => {
+            try {
+                const response = await fetch(`${API_URL}/instance/connectionState/${INSTANCE_NAME}`, { headers: { 'apikey': API_KEY } });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                if (data.instance?.state === 'open') {
+                    updateConnectionStatusUI('Conectado');
+                } else if(connectionStatusText.textContent !== 'Aguardando QR Code') {
+                    // Evita sobrescrever o status enquanto o QR code está na tela
+                    updateConnectionStatusUI('Desconectado');
+                }
+            } catch (error) {
+                console.error("Erro ao verificar status:", error);
+                updateConnectionStatusUI('Erro', 'Falha ao verificar status.');
+            }
+        };
+
+        connectBtn.addEventListener('click', fetchQRCode);
+
+        disconnectBtn.addEventListener('click', async () => {
+            updateConnectionStatusUI('Desconectado', 'Desconectando...');
+            try {
+                await fetch(`${API_URL}/instance/logout/${INSTANCE_NAME}`, { method: 'DELETE', headers: { 'apikey': API_KEY } });
+                updateConnectionStatusUI('Desconectado', 'Sessão encerrada.');
+            } catch (error) {
+                console.error("Erro ao desconectar:", error);
+                updateConnectionStatusUI('Erro', 'Falha ao desconectar.');
+            }
+        });
+
+        // --- INICIALIZAÇÃO ---
+        const init = () => {
+            fetchAgendamentos();
+            setupRealtime();
+            checkConnectionState();
+            setInterval(checkConnectionState, 30000); // Verifica a cada 30 segundos
+        };
+
+        init();
+    });
+    </script>
 </body>
 </html>
+
