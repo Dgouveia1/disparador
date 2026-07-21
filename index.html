@@ -3,481 +3,959 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DisparaZap - Agendador de Mensagens</title>
+    <title>Configurador de Propostas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         :root {
-            --primary-color: #075E54;
-            --secondary-color: #128C7E;
-            --accent-color: #25D366;
-            --light-gray: #F0F2F5;
-            --text-color: #333;
+            --brand: #4f46e5;
+            --brand-dark: #4338ca;
+            --brand-light: #eef2ff;
+            --accent: #06b6d4;
+            --ink: #1e293b;
+            --muted: #64748b;
+            --bg: #f1f5f9;
+            --ok: #16a34a;
         }
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--light-gray);
-            color: var(--text-color);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--ink);
         }
-        .status-agendado { background-color: #3b82f6; color: white; }
-        .status-enviado { background-color: #22c55e; color: white; }
-        .status-erro { background-color: #ef4444; color: white; }
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 2rem;
-            height: calc(100vh - 80px);
+
+        /* ---------- Stepper ---------- */
+        .stepper { display: flex; align-items: flex-start; gap: 0; }
+        .step-node { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
+        .step-node:not(:last-child)::after {
+            content: ''; position: absolute; top: 18px; left: 50%; width: 100%; height: 3px;
+            background: #e2e8f0; z-index: 0;
         }
-        @media (max-width: 1024px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
+        .step-node.done:not(:last-child)::after { background: var(--brand); }
+        .step-circle {
+            width: 38px; height: 38px; border-radius: 999px; display: flex; align-items: center;
+            justify-content: center; font-weight: 700; background: #fff; border: 3px solid #e2e8f0;
+            color: var(--muted); z-index: 1; transition: all .25s; font-size: .9rem;
         }
-        /* Scrollbar customizada */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .step-node.active .step-circle { border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 4px var(--brand-light); }
+        .step-node.done .step-circle { background: var(--brand); border-color: var(--brand); color: #fff; }
+        .step-label { font-size: .72rem; margin-top: 6px; text-align: center; color: var(--muted); font-weight: 600; max-width: 90px; }
+        .step-node.active .step-label, .step-node.done .step-label { color: var(--ink); }
+        @media (max-width: 640px) { .step-label { display: none; } }
+
+        /* ---------- Steps / transitions ---------- */
+        .step-panel { display: none; animation: fadeIn .3s ease; }
+        .step-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ---------- Fields ---------- */
+        .field-label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: 6px; color: #334155; }
+        .field-hint { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+        .inp {
+            width: 100%; padding: .65rem .8rem; border: 1.5px solid #e2e8f0; border-radius: .6rem;
+            background: #fff; font-size: .95rem; transition: border-color .15s, box-shadow .15s; color: var(--ink);
+        }
+        .inp:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-light); }
+        textarea.inp { resize: vertical; min-height: 84px; }
+
+        /* ---------- Choice chips (problemas) ---------- */
+        .chip { cursor: pointer; }
+        .chip input { display: none; }
+        .chip-box {
+            display: flex; align-items: center; gap: .6rem; padding: .7rem .85rem; border: 1.5px solid #e2e8f0;
+            border-radius: .7rem; background: #fff; transition: all .15s; font-size: .9rem; height: 100%;
+        }
+        .chip:hover .chip-box { border-color: #c7d2fe; }
+        .chip input:checked + .chip-box { border-color: var(--brand); background: var(--brand-light); }
+        .chip-tick { width: 20px; height: 20px; border-radius: 6px; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+        .chip input:checked + .chip-box .chip-tick { background: var(--brand); border-color: var(--brand); }
+
+        /* ---------- Module cards ---------- */
+        .mod-card { cursor: pointer; }
+        .mod-card input { display: none; }
+        .mod-box {
+            border: 2px solid #e2e8f0; border-radius: .9rem; padding: 1rem; background: #fff;
+            transition: all .18s; height: 100%; position: relative; display: flex; gap: .85rem;
+        }
+        .mod-card:hover .mod-box { border-color: #c7d2fe; transform: translateY(-2px); box-shadow: 0 8px 20px -12px rgba(79,70,229,.4); }
+        .mod-card input:checked + .mod-box { border-color: var(--brand); background: var(--brand-light); }
+        .mod-icon { width: 44px; height: 44px; border-radius: .7rem; background: var(--brand-light); color: var(--brand); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; flex-shrink: 0; }
+        .mod-card input:checked + .mod-box .mod-icon { background: var(--brand); color: #fff; }
+        .mod-check-badge { position: absolute; top: .7rem; right: .7rem; width: 22px; height: 22px; border-radius: 999px; background: var(--brand); color: #fff; display: none; align-items: center; justify-content: center; font-size: .7rem; }
+        .mod-card input:checked + .mod-box .mod-check-badge { display: flex; }
+
+        /* ---------- Pills (sim/não) ---------- */
+        .pill-group { display: inline-flex; gap: .5rem; }
+        .pill { cursor: pointer; }
+        .pill input { display: none; }
+        .pill-box { padding: .45rem 1.1rem; border: 1.5px solid #e2e8f0; border-radius: 999px; background: #fff; font-size: .88rem; font-weight: 600; color: var(--muted); transition: all .15s; }
+        .pill input:checked + .pill-box { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+        /* ---------- Detalhamento blocks ---------- */
+        .mod-detail { border: 1.5px solid #e2e8f0; border-radius: .9rem; overflow: hidden; }
+        .mod-detail-head { background: var(--brand-light); padding: .85rem 1.1rem; display: flex; align-items: center; gap: .6rem; font-weight: 700; color: var(--brand-dark); }
+
+        .btn {
+            padding: .65rem 1.4rem; border-radius: .7rem; font-weight: 700; font-size: .95rem; cursor: pointer;
+            display: inline-flex; align-items: center; gap: .5rem; transition: all .15s; border: none;
+        }
+        .btn-primary { background: var(--brand); color: #fff; }
+        .btn-primary:hover { background: var(--brand-dark); }
+        .btn-ghost { background: #fff; color: var(--ink); border: 1.5px solid #e2e8f0; }
+        .btn-ghost:hover { border-color: #cbd5e1; background: #f8fafc; }
+
+        /* toggle switch */
+        .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background: #cbd5e1; border-radius: 999px; transition: .2s; }
+        .slider::before { content: ''; position: absolute; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 999px; transition: .2s; }
+        .switch input:checked + .slider { background: var(--brand); }
+        .switch input:checked + .slider::before { transform: translateX(20px); }
+
+        /* ---------- Proposal document ---------- */
+        #proposta { display: none; }
+        .doc {
+            background: #fff; max-width: 820px; margin: 0 auto; padding: 3rem 3.2rem;
+            box-shadow: 0 10px 40px -15px rgba(0,0,0,.25); border-radius: 4px; color: #1e293b; line-height: 1.6;
+        }
+        .doc h1 { font-size: 1.7rem; font-weight: 800; }
+        .doc h2 { font-size: 1.05rem; font-weight: 800; color: var(--brand-dark); text-transform: uppercase; letter-spacing: .04em; margin: 1.8rem 0 .8rem; padding-bottom: .4rem; border-bottom: 2px solid var(--brand-light); }
+        .doc h3 { font-size: 1rem; font-weight: 700; margin: 1rem 0 .3rem; }
+        .doc .doc-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid var(--brand); padding-bottom: 1.2rem; margin-bottom: 1rem; }
+        .doc .kv { font-size: .9rem; }
+        .doc .muted { color: var(--muted); }
+        .doc ul { margin: .3rem 0 .3rem 1.1rem; list-style: disc; }
+        .doc .mod-block { padding: 1rem 1.2rem; background: #f8fafc; border-left: 4px solid var(--brand); border-radius: 0 .5rem .5rem 0; margin-bottom: .9rem; }
+        .doc .qa { font-size: .88rem; margin-top: .5rem; }
+        .doc .qa .q { color: var(--muted); }
+        .doc .price-box { background: var(--brand-light); border-radius: .7rem; padding: 1.2rem 1.4rem; display: flex; justify-content: space-between; align-items: center; }
+        .doc .big-price { font-size: 1.8rem; font-weight: 800; color: var(--brand-dark); }
+
+        /* ---------- Print ---------- */
+        @media print {
+            .app, .no-print { display: none !important; }
+            body { background: #fff; }
+            #proposta { display: block !important; }
+            .doc { box-shadow: none; max-width: none; margin: 0; padding: 0; border-radius: 0; }
+            .doc .mod-block, .doc .price-box { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .doc h2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .avoid-break { break-inside: avoid; }
+            @page { margin: 16mm; }
+        }
     </style>
 </head>
 <body class="antialiased">
 
+<!-- ============ APP (wizard) ============ -->
+<div class="app min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-md p-4 flex justify-between items-center fixed top-0 left-0 right-0 z-20">
-        <div class="flex items-center gap-3">
-            <i class="fab fa-whatsapp text-4xl" style="color: var(--accent-color);"></i>
-            <h1 class="text-2xl font-bold text-[var(--primary-color)]">DisparaZap</h1>
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg" style="background:var(--brand)">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-extrabold leading-tight" id="brand-name">Sua Empresa</h1>
+                    <p class="text-xs text-slate-500 leading-tight">Configurador de propostas</p>
+                </div>
+            </div>
+            <button id="btn-reset" class="btn btn-ghost text-sm" title="Começar uma nova proposta">
+                <i class="fas fa-rotate-left"></i> <span class="hidden sm:inline">Nova proposta</span>
+            </button>
         </div>
     </header>
 
-    <main class="main-grid p-8 pt-24">
-        <!-- Coluna Principal (Agendamentos) -->
-        <div class="flex flex-col gap-4 h-full">
-            <!-- Controles e Botão de Agendamento -->
-            <div class="flex justify-between items-center flex-wrap gap-4">
-                <div class="flex items-center gap-4 flex-wrap">
-                    <div>
-                        <label for="filter-date" class="text-sm font-medium">Filtrar por data:</label>
-                        <input type="date" id="filter-date" class="p-2 border rounded-lg focus:ring-2 focus:ring-[var(--secondary-color)]">
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <!-- Stepper -->
+        <div class="stepper mb-8" id="stepper"></div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8">
+
+            <!-- STEP 1 — Negócio -->
+            <section class="step-panel" data-step="1">
+                <h2 class="text-xl font-extrabold mb-1">Sobre o negócio do cliente</h2>
+                <p class="text-slate-500 text-sm mb-6">Vamos entender o contexto antes de desenhar a solução.</p>
+                <div class="grid sm:grid-cols-2 gap-5">
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="neg_cliente">Nome do cliente / empresa *</label>
+                        <input class="inp" id="neg_cliente" placeholder="Ex: Ótica Visão Clara">
                     </div>
                     <div>
-                        <label for="filter-status" class="text-sm font-medium">Filtrar por status:</label>
-                        <select id="filter-status" class="p-2 border rounded-lg focus:ring-2 focus:ring-[var(--secondary-color)]">
-                            <option value="todos">Todos</option>
-                            <option value="agendado" selected>Agendado</option>
-                            <option value="enviado">Enviado</option>
-                            <option value="erro">Erro</option>
+                        <label class="field-label" for="neg_nicho">Nicho / segmento</label>
+                        <input class="inp" id="neg_nicho" list="nichos" placeholder="Ex: Varejo, Clínica, Imobiliária">
+                        <datalist id="nichos"></datalist>
+                    </div>
+                    <div>
+                        <label class="field-label" for="neg_funcionarios">Nº de funcionários</label>
+                        <select class="inp" id="neg_funcionarios">
+                            <option value="">Selecione</option>
+                            <option>1 a 5</option><option>6 a 20</option><option>21 a 50</option>
+                            <option>51 a 100</option><option>Mais de 100</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="field-label" for="neg_faturamento">Faixa de faturamento mensal</label>
+                        <select class="inp" id="neg_faturamento">
+                            <option value="">Selecione</option>
+                            <option>Até R$ 50 mil</option><option>R$ 50 mil a R$ 200 mil</option>
+                            <option>R$ 200 mil a R$ 1 mi</option><option>Acima de R$ 1 mi</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="neg_volume">Atendimentos / leads por mês</label>
+                        <select class="inp" id="neg_volume">
+                            <option value="">Selecione</option>
+                            <option>Até 100</option><option>100 a 500</option>
+                            <option>500 a 2.000</option><option>Mais de 2.000</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="neg_ferramentas">Ferramentas que usam hoje</label>
+                        <input class="inp" id="neg_ferramentas" placeholder="Ex: Planilhas, WhatsApp comum, sistema X...">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="field-label" for="neg_vendedor">Seu nome (vendedor responsável) *</label>
+                        <input class="inp" id="neg_vendedor" placeholder="Quem está assinando a proposta">
+                    </div>
                 </div>
-                <button id="open-modal-btn" class="bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-transform duration-200 hover:scale-105">
-                    <i class="fas fa-calendar-plus"></i> Agendar Envio
-                </button>
-            </div>
+            </section>
 
-            <!-- Tabela de Agendamentos -->
-            <div class="bg-white rounded-lg shadow-md overflow-auto flex-grow">
-                <table class="w-full text-sm text-left">
-                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Data de Envio</th>
-                            <th scope="col" class="px-6 py-3">Telefone</th>
-                            <th scope="col" class="px-6 py-3">Mensagem</th>
-                            <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3 text-right">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="agendamentos-table-body">
-                        <!-- Linhas serão inseridas via JS -->
-                         <tr><td colspan="5" class="text-center p-8 text-gray-500">Nenhum agendamento encontrado.</td></tr>
-                    </tbody>
-                </table>
+            <!-- STEP 2 — Problemas -->
+            <section class="step-panel" data-step="2">
+                <h2 class="text-xl font-extrabold mb-1">O que o cliente quer resolver?</h2>
+                <p class="text-slate-500 text-sm mb-6">Marque as dores que ele mencionou. Isso guia a solução.</p>
+                <div class="grid sm:grid-cols-2 gap-3" id="problemas-grid"></div>
+                <div class="mt-5">
+                    <label class="field-label" for="prob_outros">Outras dores / observações</label>
+                    <textarea class="inp" id="prob_outros" placeholder="Algo específico que o cliente falou..."></textarea>
+                </div>
+            </section>
+
+            <!-- STEP 3 — Módulos -->
+            <section class="step-panel" data-step="3">
+                <h2 class="text-xl font-extrabold mb-1">Quais módulos fazem parte da solução?</h2>
+                <p class="text-slate-500 text-sm mb-6">Selecione tudo que faz sentido. Cada módulo abrirá perguntas específicas na próxima etapa.</p>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="modulos-grid"></div>
+                <p id="modulos-empty-warn" class="text-sm text-red-500 mt-4 hidden"><i class="fas fa-circle-info"></i> Selecione pelo menos um módulo para continuar.</p>
+            </section>
+
+            <!-- STEP 4 — Detalhamento -->
+            <section class="step-panel" data-step="4">
+                <h2 class="text-xl font-extrabold mb-1">Detalhando cada módulo</h2>
+                <p class="text-slate-500 text-sm mb-6">Quanto melhor entendermos, mais precisa fica a proposta.</p>
+                <div class="flex flex-col gap-5" id="detalhamento-container"></div>
+                <div id="detalhamento-empty" class="text-center text-slate-400 py-10 hidden">
+                    <i class="fas fa-arrow-left"></i> Volte e selecione ao menos um módulo.
+                </div>
+            </section>
+
+            <!-- STEP 5 — Comercial -->
+            <section class="step-panel" data-step="5">
+                <h2 class="text-xl font-extrabold mb-1">Prazo e investimento</h2>
+                <p class="text-slate-500 text-sm mb-6">O sistema sugere com base nos módulos. Ajuste como quiser e escolha o que entra na proposta.</p>
+
+                <div class="grid md:grid-cols-2 gap-5">
+                    <!-- Preço -->
+                    <div class="border border-slate-200 rounded-xl p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="font-bold flex items-center gap-2"><i class="fas fa-sack-dollar text-slate-400"></i> Investimento</span>
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                                Incluir na proposta
+                                <span class="switch"><input type="checkbox" id="com_incluir_preco"><span class="slider"></span></span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-1">Sugestão do sistema: <span class="font-bold text-slate-700" id="sug-preco">R$ 0</span></p>
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400 font-semibold">R$</span>
+                            <input class="inp" id="com_preco" type="number" min="0" step="100" placeholder="0">
+                            <button class="btn btn-ghost text-xs whitespace-nowrap" id="btn-usar-sug-preco" type="button"><i class="fas fa-wand-magic-sparkles"></i> Usar sugestão</button>
+                        </div>
+                        <div class="mt-4">
+                            <label class="field-label" for="com_condicoes">Condições de pagamento</label>
+                            <input class="inp" id="com_condicoes" placeholder="Ex: 50% na assinatura + 50% na entrega">
+                        </div>
+                    </div>
+
+                    <!-- Prazo -->
+                    <div class="border border-slate-200 rounded-xl p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="font-bold flex items-center gap-2"><i class="fas fa-calendar-check text-slate-400"></i> Prazo de entrega</span>
+                            <label class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                                Incluir na proposta
+                                <span class="switch"><input type="checkbox" id="com_incluir_prazo"><span class="slider"></span></span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-1">Sugestão do sistema: <span class="font-bold text-slate-700" id="sug-prazo">0 semanas</span></p>
+                        <div class="flex items-center gap-2">
+                            <input class="inp" id="com_prazo" type="number" min="0" step="1" placeholder="0">
+                            <span class="text-slate-500 font-semibold whitespace-nowrap">semanas</span>
+                            <button class="btn btn-ghost text-xs whitespace-nowrap" id="btn-usar-sug-prazo" type="button"><i class="fas fa-wand-magic-sparkles"></i> Usar sugestão</button>
+                        </div>
+                        <div class="mt-4">
+                            <label class="field-label" for="com_validade">Validade da proposta</label>
+                            <input class="inp" id="com_validade" placeholder="Ex: 15 dias">
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-4"><i class="fas fa-circle-info"></i> A sugestão é uma estimativa interna baseada nos módulos selecionados — sempre valide com o time técnico.</p>
+            </section>
+
+            <!-- STEP 6 — Revisão -->
+            <section class="step-panel" data-step="6">
+                <h2 class="text-xl font-extrabold mb-1">Revisão &amp; geração</h2>
+                <p class="text-slate-500 text-sm mb-6">Confira o preview abaixo. Ao gerar, escolha "Salvar como PDF" no diálogo de impressão.</p>
+                <div class="flex flex-wrap gap-3 mb-6">
+                    <button class="btn btn-primary" id="btn-gerar"><i class="fas fa-file-pdf"></i> Gerar proposta (PDF)</button>
+                    <span class="text-xs text-slate-400 self-center">O preview abaixo é exatamente o que será impresso.</span>
+                </div>
+                <div class="bg-slate-100 rounded-xl p-4 sm:p-6 overflow-x-auto" id="preview-wrap"></div>
+            </section>
+
+            <!-- Navigation -->
+            <div class="flex items-center justify-between mt-8 pt-5 border-t border-slate-100">
+                <button class="btn btn-ghost" id="btn-prev"><i class="fas fa-arrow-left"></i> Voltar</button>
+                <span class="text-xs text-slate-400" id="autosave-note"><i class="fas fa-cloud"></i> Rascunho salvo automaticamente</span>
+                <button class="btn btn-primary" id="btn-next">Avançar <i class="fas fa-arrow-right"></i></button>
             </div>
         </div>
-
-        <!-- Coluna Direita (Status da Conexão) -->
-        <aside class="bg-white rounded-lg shadow-md p-6 flex flex-col gap-4 overflow-y-auto h-full">
-            <h2 class="text-xl font-bold text-[var(--primary-color)] border-b pb-2">
-                <i class="fas fa-link"></i> Status da Conexão
-            </h2>
-            <div class="flex items-center gap-3 p-3 rounded-lg" id="connection-status-container">
-                <div class="w-4 h-4 rounded-full bg-gray-400 animate-pulse" id="status-dot"></div>
-                <span id="connection-status-text" class="font-semibold">Verificando...</span>
-            </div>
-            
-            <div id="connection-actions">
-                <!-- Botão de conectar -->
-                <div id="connect-button-container">
-                    <p class="text-sm mb-4">Clique no botão para gerar o QR Code e conectar sua instância do WhatsApp.</p>
-                    <button id="connect-btn" class="w-full bg-[var(--primary-color)] hover:bg-[var(--secondary-color)] text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
-                        <i class="fas fa-qrcode"></i> Conectar
-                    </button>
-                </div>
-                
-                <!-- QR Code -->
-                <div id="qrcode-container" class="hidden text-center">
-                    <p class="text-sm mb-2">Leia o QR Code com seu WhatsApp.</p>
-                    <div id="qrcode" class="p-2 border rounded-lg inline-block bg-white"></div>
-                    <small id="instance-status-detail" class="text-xs text-gray-500 mt-2 block">Aguardando leitura...</small>
-                </div>
-                
-                <!-- Informações de Conectado -->
-                 <div id="connected-info" class="hidden text-center p-4 bg-green-100 rounded-lg">
-                    <p class="text-green-800 font-semibold"><i class="fas fa-check-circle"></i> Conectado com sucesso!</p>
-                    <button id="disconnect-btn" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2">
-                        <i class="fas fa-power-off"></i> Desconectar
-                    </button>
-                </div>
-            </div>
-        </aside>
     </main>
-    
-    <!-- Modal de Agendamento -->
-    <div id="agendamento-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-lg transform transition-all duration-300 scale-95 opacity-0" id="modal-content">
-            <div class="flex justify-between items-center border-b pb-4 mb-4">
-                <h3 class="text-2xl font-bold text-[var(--primary-color)]" id="modal-title">Agendar Novo Envio</h3>
-                <button id="close-modal-btn" class="text-gray-500 hover:text-red-600 text-2xl">&times;</button>
-            </div>
-            <form id="agendamento-form">
-                <input type="hidden" id="agendamento-id">
-                <div class="mb-4">
-                    <label for="data-envio" class="block text-sm font-medium mb-1">Data do Envio</label>
-                    <input type="date" id="data-envio" class="w-full p-2 border rounded-lg" required>
-                </div>
-                <div class="mb-4">
-                    <label for="telefone" class="block text-sm font-medium mb-1">Telefone (com DDI e DDD)</label>
-                    <input type="tel" id="telefone" class="w-full p-2 border rounded-lg" placeholder="Ex: 5511999998888" required>
-                </div>
-                <div class="mb-6">
-                    <label for="mensagem" class="block text-sm font-medium mb-1">Mensagem</label>
-                    <textarea id="mensagem" rows="5" class="w-full p-2 border rounded-lg" placeholder="Digite sua mensagem aqui..." required></textarea>
-                </div>
-                <div class="flex justify-end">
-                    <button type="submit" class="bg-[var(--accent-color)] hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg flex items-center gap-2">
-                        <i class="fas fa-save"></i> Salvar Agendamento
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Supabase Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- CONFIGURAÇÕES ---
-        // EVOLUTION API
-        const API_URL = 'https://tess-evolution-api.1hldwq.easypanel.host';
-        const API_KEY = '429683C4C977415CAAFCCE10F7D57E11';
-        const INSTANCE_NAME = 'c118c9b2-93e5-4b16-92ab-484358820795';
+</div>
 
-        // SUPABASE - **SUBSTITUA PELAS SUAS CREDENCIAIS**
-        const SUPABASE_URL = 'https://qqkmcjbzjusmjuyxkkgm.supabase.co'; // Insira a URL do seu projeto
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxa21jamJ6anVzbWp1eXhra2dtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTk0NDksImV4cCI6MjA3NDIzNTQ0OX0.dg1tiMqRJ1O9yqfKSrVfSoxwcuJpbZkNacCNEgEdjg0'; // Insira sua chave anônima
+<!-- ============ Proposal document (print target) ============ -->
+<div id="proposta"></div>
 
-        // --- INICIALIZAÇÃO DO SUPABASE ---
-        let supabase;
-        try {
-            if (SUPABASE_URL.includes('YOUR_PROJECT_ID') || SUPABASE_ANON_KEY.includes('YOUR_SUPABASE_ANON_KEY')) {
-                 console.warn("Supabase não configurado. As funcionalidades de agendamento estão desabilitadas. Edite as variáveis SUPABASE_URL e SUPABASE_ANON_KEY no código.");
-            } else {
-                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            }
-        } catch (error) {
-            console.error("Erro ao inicializar o cliente Supabase:", error);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    'use strict';
+
+    /* =======================================================================
+       CONFIGURAÇÃO — edite livremente (marca, dores, módulos, preços/prazos)
+       ======================================================================= */
+    const EMPRESA = {
+        nome: 'Beaifirst',                   // <- ajuste o nome/branding aqui
+        subtitulo: '',
+        contato: ''
+    };
+
+    const NICHOS = ['Varejo', 'Clínica / Saúde', 'Imobiliária', 'Advocacia', 'Restaurante / Food',
+        'Educação', 'Serviços', 'E-commerce', 'Indústria', 'Beleza / Estética', 'Automotivo'];
+
+    const PROBLEMAS = [
+        { id: 'dados_desc', label: 'Dados espalhados / descentralizados', icon: 'fa-database' },
+        { id: 'followup', label: 'Follow-up manual e perda de leads', icon: 'fa-clock-rotate-left' },
+        { id: 'atendimento_lento', label: 'Atendimento lento ou sobrecarregado', icon: 'fa-comments' },
+        { id: 'sem_bi', label: 'Falta de visão gerencial (indicadores)', icon: 'fa-chart-line' },
+        { id: 'agenda', label: 'Agenda desorganizada / faltas', icon: 'fa-calendar-xmark' },
+        { id: 'financeiro', label: 'Conciliação financeira manual', icon: 'fa-file-invoice-dollar' },
+        { id: 'multicanal', label: 'Canais desconectados (WhatsApp, Insta...)', icon: 'fa-diagram-project' },
+        { id: 'processos', label: 'Processos manuais e repetitivos', icon: 'fa-gears' }
+    ];
+
+    // precoBase em R$, prazoSemanas em semanas — VALORES PLACEHOLDER, ajuste ao seu mercado.
+    const MODULOS = [
+        {
+            id: 'crm', nome: 'CRM', icon: 'fa-users',
+            descricao: 'Central de relacionamento e funil de vendas.',
+            precoBase: 4000, prazoSemanas: 3,
+            resultadoEsperado: 'Visão única de cada cliente e um funil de vendas organizado, com histórico de interações e etapas claras — nada mais se perde em planilhas.',
+            limitacoes: 'Não substitui um ERP financeiro completo; foco em relacionamento e vendas.',
+            perguntas: [
+                { id: 'crm_usuarios', label: 'Quantos usuários vão usar o CRM?', tipo: 'number' },
+                { id: 'crm_funil', label: 'Descreva as etapas do funil de vendas atual', tipo: 'textarea' },
+                { id: 'crm_wa', label: 'Precisa integrar com WhatsApp?', tipo: 'sim_nao' },
+                { id: 'crm_campos', label: 'Precisa de campos/relatórios personalizados?', tipo: 'sim_nao' }
+            ]
+        },
+        {
+            id: 'ia_atendimento', nome: 'IA no Atendimento', icon: 'fa-robot',
+            descricao: 'Agente de IA que atende, qualifica e responde 24/7.',
+            precoBase: 6000, prazoSemanas: 4,
+            resultadoEsperado: 'Atendimento imediato 24/7, qualificação automática de leads e redução drástica do tempo de primeira resposta, liberando a equipe para o que importa.',
+            limitacoes: 'A IA responde dentro do escopo/base de conhecimento fornecido; casos complexos são encaminhados a um humano.',
+            perguntas: [
+                { id: 'ia_canais', label: 'Em quais canais a IA deve atender?', tipo: 'multi', opcoes: ['WhatsApp', 'Site', 'Instagram', 'Facebook'] },
+                { id: 'ia_volume', label: 'Volume aproximado de mensagens por dia', tipo: 'number' },
+                { id: 'ia_agenda', label: 'A IA deve agendar horários?', tipo: 'sim_nao' },
+                { id: 'ia_catalogo', label: 'Deve responder sobre catálogo/preços?', tipo: 'sim_nao' },
+                { id: 'ia_handoff', label: 'Como funciona a passagem para atendente humano?', tipo: 'textarea' }
+            ]
+        },
+        {
+            id: 'mensageria', nome: 'Mensageria', icon: 'fa-paper-plane',
+            descricao: 'Disparos e campanhas segmentadas em massa.',
+            precoBase: 3000, prazoSemanas: 2,
+            resultadoEsperado: 'Comunicação em escala com listas segmentadas, campanhas agendadas e mensagens padronizadas — mais alcance com menos esforço.',
+            limitacoes: 'Sujeito às políticas de envio dos canais (ex.: WhatsApp) para evitar bloqueios.',
+            perguntas: [
+                { id: 'msg_volume', label: 'Volume de disparos por mês', tipo: 'number' },
+                { id: 'msg_segmentacao', label: 'Precisa segmentar listas?', tipo: 'sim_nao' },
+                { id: 'msg_templates', label: 'Quantos modelos de mensagem/template?', tipo: 'number' },
+                { id: 'msg_agenda', label: 'Precisa agendar envios?', tipo: 'sim_nao' }
+            ]
+        },
+        {
+            id: 'omnichannel', nome: 'Omnichannel', icon: 'fa-comments',
+            descricao: 'Todos os canais em uma única caixa de entrada.',
+            precoBase: 5000, prazoSemanas: 3,
+            resultadoEsperado: 'Equipe atende WhatsApp, Instagram e demais canais em uma só tela, com distribuição de conversas e histórico unificado por cliente.',
+            limitacoes: 'Disponibilidade de cada canal depende de sua API oficial.',
+            perguntas: [
+                { id: 'omni_canais', label: 'Quais canais devem ser unificados?', tipo: 'multi', opcoes: ['WhatsApp', 'Instagram', 'Facebook', 'E-mail', 'Telegram'] },
+                { id: 'omni_agentes', label: 'Quantos agentes de atendimento?', tipo: 'number' },
+                { id: 'omni_distribuicao', label: 'Como as conversas devem ser distribuídas?', tipo: 'textarea' }
+            ]
+        },
+        {
+            id: 'followup', nome: 'Follow-up automático', icon: 'fa-clock-rotate-left',
+            descricao: 'Cadências automáticas para não perder oportunidade.',
+            precoBase: 2500, prazoSemanas: 2,
+            resultadoEsperado: 'Nenhum lead esfria: sequências automáticas de contato disparam nos momentos certos, aumentando a taxa de conversão.',
+            limitacoes: 'Depende de contatos válidos e do consentimento do cliente para receber mensagens.',
+            perguntas: [
+                { id: 'fup_gatilho', label: 'Qual o gatilho? (ex: sem resposta em 2 dias)', tipo: 'text' },
+                { id: 'fup_cadencia', label: 'Quantos contatos na cadência?', tipo: 'number' },
+                { id: 'fup_canais', label: 'Por quais canais?', tipo: 'multi', opcoes: ['WhatsApp', 'E-mail', 'SMS'] }
+            ]
+        },
+        {
+            id: 'dashboard', nome: 'Dashboard / BI', icon: 'fa-chart-line',
+            descricao: 'Indicadores do negócio em tempo real.',
+            precoBase: 5000, prazoSemanas: 3,
+            resultadoEsperado: 'Decisões baseadas em dados: painéis com os principais indicadores de vendas, atendimento e financeiro, atualizados automaticamente.',
+            limitacoes: 'A qualidade dos indicadores depende da qualidade e disponibilidade das fontes de dados.',
+            perguntas: [
+                { id: 'bi_metricas', label: 'Quais métricas são prioritárias?', tipo: 'multi', opcoes: ['Vendas', 'Atendimento', 'Financeiro', 'Marketing', 'Operação'] },
+                { id: 'bi_fontes', label: 'De quais sistemas vêm os dados?', tipo: 'textarea' },
+                { id: 'bi_tempo_real', label: 'Precisa ser em tempo real?', tipo: 'sim_nao' }
+            ]
+        },
+        {
+            id: 'conciliacao', nome: 'Conciliação de contas', icon: 'fa-file-invoice-dollar',
+            descricao: 'Bate valores de bancos e gateways automaticamente.',
+            precoBase: 6000, prazoSemanas: 4,
+            resultadoEsperado: 'Fim da conferência manual: entradas e saídas são conciliadas automaticamente, apontando divergências na hora.',
+            limitacoes: 'Depende da disponibilidade de extratos/API dos bancos e gateways envolvidos.',
+            perguntas: [
+                { id: 'conc_bancos', label: 'Quais bancos / gateways?', tipo: 'text' },
+                { id: 'conc_volume', label: 'Volume de transações por mês', tipo: 'number' },
+                { id: 'conc_regras', label: 'Regras de conciliação específicas?', tipo: 'textarea' }
+            ]
+        },
+        {
+            id: 'agenda', nome: 'Automação de agenda', icon: 'fa-calendar-check',
+            descricao: 'Agendamentos, lembretes e reagendamento sozinhos.',
+            precoBase: 3000, prazoSemanas: 2,
+            resultadoEsperado: 'Menos faltas e agenda cheia: clientes agendam sozinhos, recebem lembretes automáticos e podem reagendar sem ligar.',
+            limitacoes: 'Integração de calendário limitada às plataformas suportadas (ex.: Google Calendar).',
+            perguntas: [
+                { id: 'ag_google', label: 'Integrar com Google Calendar?', tipo: 'sim_nao' },
+                { id: 'ag_lembretes', label: 'Enviar lembretes automáticos?', tipo: 'sim_nao' },
+                { id: 'ag_reagenda', label: 'Cliente pode reagendar sozinho?', tipo: 'sim_nao' }
+            ]
+        },
+        {
+            id: 'integracoes', nome: 'Dados centralizados', icon: 'fa-diagram-project',
+            descricao: 'Integrações que unificam os sistemas existentes.',
+            precoBase: 4500, prazoSemanas: 3,
+            resultadoEsperado: 'Uma única fonte de verdade: os sistemas atuais passam a conversar entre si, sem retrabalho e sem dados duplicados.',
+            limitacoes: 'Integração depende de os sistemas atuais oferecerem API ou exportação de dados.',
+            perguntas: [
+                { id: 'int_sistemas', label: 'Quais sistemas precisam ser integrados?', tipo: 'textarea' },
+                { id: 'int_migracao', label: 'Precisa migrar a base atual?', tipo: 'sim_nao' },
+                { id: 'int_volume', label: 'Volume aproximado de registros', tipo: 'number' }
+            ]
         }
-        
-        // --- ELEMENTOS DO DOM (GERAL) ---
-        const tableBody = document.getElementById('agendamentos-table-body');
-        const filterDate = document.getElementById('filter-date');
-        const filterStatus = document.getElementById('filter-status');
-        
-        // --- ELEMENTOS DO DOM (MODAL) ---
-        const modal = document.getElementById('agendamento-modal');
-        const modalContent = document.getElementById('modal-content');
-        const openModalBtn = document.getElementById('open-modal-btn');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-        const agendamentoForm = document.getElementById('agendamento-form');
-        const modalTitle = document.getElementById('modal-title');
-        
-        // --- ELEMENTOS DO DOM (CONEXÃO) ---
-        const connectBtn = document.getElementById('connect-btn');
-        const disconnectBtn = document.getElementById('disconnect-btn');
-        const qrcodeContainer = document.getElementById('qrcode-container');
-        const connectionStatusText = document.getElementById('connection-status-text');
-        const instanceStatusDetail = document.getElementById('instance-status-detail');
-        const statusDot = document.getElementById('status-dot');
-        const qrcodeDiv = document.getElementById('qrcode');
-        const connectButtonContainer = document.getElementById('connect-button-container');
-        const connectedInfo = document.getElementById('connected-info');
-        const connectionStatusContainer = document.getElementById('connection-status-container');
+    ];
 
+    const TOTAL_STEPS = 6;
+    const STEP_LABELS = ['Negócio', 'Problemas', 'Módulos', 'Detalhes', 'Comercial', 'Revisão'];
+    const STORAGE_KEY = 'proposta_configurador_v1';
 
-        // --- FUNÇÕES DE RENDERIZAÇÃO E FORMATAÇÃO ---
-        const formatDate = (dateString) => {
-            if (!dateString) return 'N/A';
-            // Criar o objeto Date a partir da string ISO (que vem como UTC do Supabase)
-            const date = new Date(dateString);
-
-            // Obter os componentes da data em UTC para evitar a conversão para o fuso horário local do navegador
-            const day = String(date.getUTCDate()).padStart(2, '0');
-            const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses são baseados em zero (0-11)
-            const year = date.getUTCFullYear();
-
-            // Retornar a string formatada no padrão brasileiro (apenas data)
-            return `${day}/${month}/${year}`;
-        };
-
-        const renderTable = (agendamentos) => {
-            tableBody.innerHTML = ''; // Limpa a tabela
-            if (!agendamentos || agendamentos.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-gray-500">Nenhum agendamento encontrado para os filtros selecionados.</td></tr>';
-                return;
-            }
-
-            agendamentos.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = 'bg-white border-b hover:bg-gray-50';
-                tr.innerHTML = `
-                    <td class="px-6 py-4">${formatDate(item.data_envio)}</td>
-                    <td class="px-6 py-4">${item.telefone}</td>
-                    <td class="px-6 py-4 truncate max-w-xs">${item.mensagem}</td>
-                    <td class="px-6 py-4">
-                        <span class="px-2 py-1 text-xs font-semibold rounded-full status-${item.status}">${item.status}</span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                        <button data-id="${item.id}" class="edit-btn text-blue-600 hover:text-blue-800 mr-4"><i class="fas fa-edit"></i></button>
-                        <button data-id="${item.id}" class="delete-btn text-red-600 hover:text-red-800"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
-            });
-        };
-        
-        // --- MODAL ---
-        const showModal = (isEdit = false) => {
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                modalContent.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        };
-        const hideModal = () => {
-             modalContent.classList.add('scale-95', 'opacity-0');
-             setTimeout(() => {
-                modal.classList.add('hidden');
-                agendamentoForm.reset();
-                document.getElementById('agendamento-id').value = '';
-                modalTitle.textContent = 'Agendar Novo Envio';
-            }, 300);
-        };
-
-        openModalBtn.addEventListener('click', () => showModal());
-        closeModalBtn.addEventListener('click', hideModal);
-        modal.addEventListener('click', (e) => {
-             if (e.target === modal) hideModal();
-        });
-        
-        // --- LÓGICA DO SUPABASE (CRUD) ---
-        const fetchAgendamentos = async () => {
-            if(!supabase) return;
-            try {
-                let query = supabase.from('agendamentos').select('*').order('data_envio', { ascending: true });
-                
-                const status = filterStatus.value;
-                if(status && status !== 'todos'){
-                    query = query.eq('status', status);
-                }
-                
-                const date = filterDate.value;
-                if(date){
-                     query = query.gte('data_envio', `${date}T00:00:00`).lte('data_envio', `${date}T23:59:59`);
-                }
-
-                const { data, error } = await query;
-                if (error) throw error;
-                renderTable(data);
-            } catch (error) {
-                console.error('Erro ao buscar agendamentos:', error.message);
+    /* =======================================================================
+       ESTADO
+       ======================================================================= */
+    function defaultState() {
+        return {
+            negocio: { cliente: '', nicho: '', funcionarios: '', faturamento: '', volume: '', ferramentas: '', vendedor: '' },
+            problemas: [], problemasOutros: '',
+            modulos: [],
+            respostas: {},
+            comercial: {
+                preco: null, precoManual: false, prazo: null, prazoManual: false,
+                condicoes: '', validade: '15 dias', incluirPreco: true, incluirPrazo: true
             }
         };
-        
-        agendamentoForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if(!supabase) { alert("Supabase não configurado."); return; }
+    }
 
-            const id = document.getElementById('agendamento-id').value;
-            const agendamentoData = {
-                data_envio: document.getElementById('data-envio').value,
-                telefone: document.getElementById('telefone').value,
-                mensagem: document.getElementById('mensagem').value,
+    function loadState() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return defaultState();
+            const parsed = JSON.parse(raw);
+            const base = defaultState();
+            return {
+                ...base, ...parsed,
+                negocio: { ...base.negocio, ...(parsed.negocio || {}) },
+                comercial: { ...base.comercial, ...(parsed.comercial || {}) },
+                respostas: parsed.respostas || {},
+                problemas: parsed.problemas || [],
+                modulos: parsed.modulos || []
             };
-            
-            try {
-                let error;
-                if (id) { // Atualização
-                    const { error: updateError } = await supabase.from('agendamentos').update(agendamentoData).eq('id', id);
-                    error = updateError;
-                } else { // Inserção
-                    const { error: insertError } = await supabase.from('agendamentos').insert([agendamentoData]);
-                    error = insertError;
-                }
-                
-                if (error) throw error;
-                hideModal();
-                // O fetch não é mais necessário aqui, o realtime cuidará disso.
-            } catch (error) {
-                console.error('Erro ao salvar agendamento:', error.message);
-                alert('Ocorreu um erro ao salvar. Verifique o console.');
-            }
-        });
+        } catch (e) { return defaultState(); }
+    }
 
-        tableBody.addEventListener('click', async (e) => {
-            if(!supabase) return;
+    let state = loadState();
+    let stepAtual = 1;
 
-            const editButton = e.target.closest('.edit-btn');
-            if(editButton) {
-                const id = editButton.dataset.id;
-                const { data, error } = await supabase.from('agendamentos').select('*').eq('id', id).single();
-                if(error) {
-                    console.error("Erro ao buscar para edição:", error);
-                    return;
-                }
-                document.getElementById('agendamento-id').value = data.id;
-                document.getElementById('data-envio').value = data.data_envio.slice(0, 10); // Formato para date
-                document.getElementById('telefone').value = data.telefone;
-                document.getElementById('mensagem').value = data.mensagem;
-                modalTitle.textContent = 'Editar Agendamento';
-                showModal(true);
-            }
+    const saveState = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} };
+    const selectedModulos = () => MODULOS.filter(m => state.modulos.includes(m.id));
 
-            const deleteButton = e.target.closest('.delete-btn');
-            if(deleteButton) {
-                const id = deleteButton.dataset.id;
-                if (confirm('Tem certeza que deseja excluir este agendamento?')) {
-                    const { error } = await supabase.from('agendamentos').delete().eq('id', id);
-                    if (error) {
-                         console.error('Erro ao deletar:', error.message);
-                    }
-                     // O fetch não é mais necessário aqui, o realtime cuidará disso.
-                }
-            }
-        });
-        
-        // --- FILTROS ---
-        filterDate.addEventListener('change', fetchAgendamentos);
-        filterStatus.addEventListener('change', fetchAgendamentos);
+    /* =======================================================================
+       HELPERS
+       ======================================================================= */
+    const el = id => document.getElementById(id);
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const brl = n => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
-        // --- SUPABASE REALTIME ---
-        const setupRealtime = () => {
-            if(!supabase) return;
-            const channel = supabase.channel('public:agendamentos')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, payload => {
-                    console.log('Mudança recebida!', payload);
-                    fetchAgendamentos();
-                })
-                .subscribe();
+    function calcPreco() {
+        return selectedModulos().reduce((sum, m) => sum + (m.precoBase || 0), 0);
+    }
+    function calcPrazo() {
+        const semanas = selectedModulos().map(m => m.prazoSemanas || 0);
+        if (!semanas.length) return 0;
+        const maior = Math.max(...semanas);
+        const resto = semanas.reduce((a, b) => a + b, 0) - maior;
+        return Math.ceil(maior + resto * 0.4); // fator de paralelismo
+    }
+
+    /* =======================================================================
+       RENDER — conteúdo estático das listas
+       ======================================================================= */
+    function renderStatic() {
+        el('brand-name').textContent = EMPRESA.nome;
+        // niches datalist
+        el('nichos').innerHTML = NICHOS.map(n => `<option value="${esc(n)}">`).join('');
+        // problemas
+        el('problemas-grid').innerHTML = PROBLEMAS.map(p => `
+            <label class="chip">
+                <input type="checkbox" class="problema-check" value="${p.id}">
+                <span class="chip-box">
+                    <span class="chip-tick"><i class="fas fa-check text-[10px]"></i></span>
+                    <i class="fas ${p.icon} text-slate-400 w-4 text-center"></i>
+                    <span>${esc(p.label)}</span>
+                </span>
+            </label>`).join('');
+        // modulos
+        el('modulos-grid').innerHTML = MODULOS.map(m => `
+            <label class="mod-card">
+                <input type="checkbox" class="modulo-check" value="${m.id}">
+                <span class="mod-box">
+                    <span class="mod-check-badge"><i class="fas fa-check"></i></span>
+                    <span class="mod-icon"><i class="fas ${m.icon}"></i></span>
+                    <span>
+                        <span class="block font-bold text-sm">${esc(m.nome)}</span>
+                        <span class="block text-xs text-slate-500 mt-1 leading-snug">${esc(m.descricao)}</span>
+                    </span>
+                </span>
+            </label>`).join('');
+    }
+
+    /* =======================================================================
+       RENDER — detalhamento dinâmico (perguntas por módulo selecionado)
+       ======================================================================= */
+    function questionInput(p) {
+        const val = state.respostas[p.id];
+        if (p.tipo === 'textarea')
+            return `<textarea class="inp" data-qid="${p.id}" rows="2">${esc(val)}</textarea>`;
+        if (p.tipo === 'number')
+            return `<input class="inp" type="number" data-qid="${p.id}" value="${esc(val)}" placeholder="0">`;
+        if (p.tipo === 'text')
+            return `<input class="inp" type="text" data-qid="${p.id}" value="${esc(val)}">`;
+        if (p.tipo === 'sim_nao')
+            return `<div class="pill-group">
+                ${['Sim', 'Não'].map(o => `
+                    <label class="pill">
+                        <input type="radio" name="q_${p.id}" data-qid="${p.id}" value="${o}" ${val === o ? 'checked' : ''}>
+                        <span class="pill-box">${o}</span>
+                    </label>`).join('')}
+            </div>`;
+        if (p.tipo === 'select')
+            return `<select class="inp" data-qid="${p.id}">
+                <option value="">Selecione</option>
+                ${(p.opcoes || []).map(o => `<option ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+            </select>`;
+        if (p.tipo === 'multi') {
+            const arr = Array.isArray(val) ? val : [];
+            return `<div class="flex flex-wrap gap-2">
+                ${(p.opcoes || []).map(o => `
+                    <label class="pill">
+                        <input type="checkbox" data-qid="${p.id}" value="${esc(o)}" ${arr.includes(o) ? 'checked' : ''}>
+                        <span class="pill-box">${esc(o)}</span>
+                    </label>`).join('')}
+            </div>`;
+        }
+        return '';
+    }
+
+    function renderDetalhamento() {
+        const cont = el('detalhamento-container');
+        const mods = selectedModulos();
+        el('detalhamento-empty').classList.toggle('hidden', mods.length > 0);
+        cont.innerHTML = mods.map(m => `
+            <div class="mod-detail">
+                <div class="mod-detail-head"><i class="fas ${m.icon}"></i> ${esc(m.nome)}</div>
+                <div class="p-4 grid sm:grid-cols-2 gap-4">
+                    ${m.perguntas.map(p => `
+                        <div class="${p.tipo === 'textarea' || p.tipo === 'multi' ? 'sm:col-span-2' : ''}">
+                            <label class="field-label">${esc(p.label)}</label>
+                            ${questionInput(p)}
+                        </div>`).join('')}
+                </div>
+            </div>`).join('');
+    }
+
+    /* =======================================================================
+       COMMIT — ler DOM -> state
+       ======================================================================= */
+    function commitNegocio() {
+        state.negocio = {
+            cliente: el('neg_cliente').value.trim(),
+            nicho: el('neg_nicho').value.trim(),
+            funcionarios: el('neg_funcionarios').value,
+            faturamento: el('neg_faturamento').value,
+            volume: el('neg_volume').value,
+            ferramentas: el('neg_ferramentas').value.trim(),
+            vendedor: el('neg_vendedor').value.trim()
         };
-
-        // --- LÓGICA DE CONEXÃO COM A EVOLUTION API ---
-        const updateConnectionStatusUI = (status, detail = '') => {
-            connectionStatusText.textContent = status;
-            instanceStatusDetail.textContent = detail;
-            statusDot.className = 'w-4 h-4 rounded-full'; // Reseta classes
-            connectionStatusContainer.className = 'flex items-center gap-3 p-3 rounded-lg';
-
-            switch (status) {
-                case 'Conectado':
-                    statusDot.classList.add('bg-green-500');
-                    connectionStatusContainer.classList.add('bg-green-100');
-                    connectButtonContainer.classList.add('hidden');
-                    qrcodeContainer.classList.add('hidden');
-                    connectedInfo.classList.remove('hidden');
-                    break;
-                case 'Conectando':
-                case 'Aguardando QR Code':
-                    statusDot.classList.add('bg-yellow-500', 'animate-pulse');
-                    connectionStatusContainer.classList.add('bg-yellow-100');
-                    connectButtonContainer.classList.add('hidden');
-                    qrcodeContainer.classList.remove('hidden');
-                    connectedInfo.classList.add('hidden');
-                    break;
-                case 'Desconectado':
-                case 'Erro':
-                default:
-                    statusDot.classList.add(status === 'Erro' ? 'bg-red-500' : 'bg-gray-400');
-                    connectionStatusContainer.classList.add(status === 'Erro' ? 'bg-red-100' : 'bg-gray-100');
-                    connectButtonContainer.classList.remove('hidden');
-                    qrcodeContainer.classList.add('hidden');
-                    connectedInfo.classList.add('hidden');
-                    break;
+    }
+    function commitProblemas() {
+        state.problemas = Array.from(document.querySelectorAll('.problema-check:checked')).map(c => c.value);
+        state.problemasOutros = el('prob_outros').value.trim();
+    }
+    function commitModulos() {
+        state.modulos = Array.from(document.querySelectorAll('.modulo-check:checked')).map(c => c.value);
+    }
+    function commitDetalhamento() {
+        selectedModulos().forEach(m => m.perguntas.forEach(p => {
+            if (p.tipo === 'multi') {
+                state.respostas[p.id] = Array.from(document.querySelectorAll(`input[data-qid="${p.id}"]:checked`)).map(x => x.value);
+            } else if (p.tipo === 'sim_nao') {
+                const c = document.querySelector(`input[data-qid="${p.id}"]:checked`);
+                if (c) state.respostas[p.id] = c.value;
+            } else {
+                const e = document.querySelector(`[data-qid="${p.id}"]`);
+                if (e) state.respostas[p.id] = e.value;
             }
-        };
+        }));
+    }
+    function commitComercial() {
+        const c = state.comercial;
+        c.condicoes = el('com_condicoes').value.trim();
+        c.validade = el('com_validade').value.trim();
+        c.incluirPreco = el('com_incluir_preco').checked;
+        c.incluirPrazo = el('com_incluir_prazo').checked;
+        // preço/prazo: só considerados manuais quando o usuário digita (tratado no listener)
+        if (c.precoManual) c.preco = el('com_preco').value === '' ? null : Number(el('com_preco').value);
+        if (c.prazoManual) c.prazo = el('com_prazo').value === '' ? null : Number(el('com_prazo').value);
+    }
+    function commitCurrent() {
+        if (stepAtual === 1) commitNegocio();
+        else if (stepAtual === 2) commitProblemas();
+        else if (stepAtual === 3) commitModulos();
+        else if (stepAtual === 4) commitDetalhamento();
+        else if (stepAtual === 5) commitComercial();
+        saveState();
+    }
 
-        const fetchQRCode = async () => {
-            try {
-                updateConnectionStatusUI('Conectando', 'Gerando QR Code...');
-                const response = await fetch(`${API_URL}/instance/connect/${INSTANCE_NAME}`, { headers: { 'apikey': API_KEY } });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                
-                if (data.base64) {
-                    const imgSrc = data.base64.startsWith('data:image/png;base64,') ? data.base64 : `data:image/png;base64,${data.base64}`;
-                    qrcodeDiv.innerHTML = `<img src="${imgSrc}" alt="QR Code">`;
-                    updateConnectionStatusUI('Aguardando QR Code', 'Leia o QR Code com seu WhatsApp.');
-                } else {
-                    throw new Error('QR Code não recebido da API.');
-                }
-            } catch (error) {
-                console.error("Falha ao buscar QR Code:", error);
-                qrcodeDiv.innerHTML = `<p class="text-red-500">Erro ao carregar QR Code.</p>`;
-                updateConnectionStatusUI('Erro', 'Falha ao carregar QR Code.');
+    /* =======================================================================
+       RENDER — preencher DOM a partir do state (ao entrar em cada etapa)
+       ======================================================================= */
+    function fillNegocio() {
+        const n = state.negocio;
+        el('neg_cliente').value = n.cliente; el('neg_nicho').value = n.nicho;
+        el('neg_funcionarios').value = n.funcionarios; el('neg_faturamento').value = n.faturamento;
+        el('neg_volume').value = n.volume; el('neg_ferramentas').value = n.ferramentas;
+        el('neg_vendedor').value = n.vendedor;
+    }
+    function fillProblemas() {
+        document.querySelectorAll('.problema-check').forEach(c => c.checked = state.problemas.includes(c.value));
+        el('prob_outros').value = state.problemasOutros;
+    }
+    function fillModulos() {
+        document.querySelectorAll('.modulo-check').forEach(c => c.checked = state.modulos.includes(c.value));
+    }
+    function refreshComercialSuggestion() {
+        const sugP = calcPreco(), sugPz = calcPrazo();
+        el('sug-preco').textContent = brl(sugP);
+        el('sug-prazo').textContent = sugPz + (sugPz === 1 ? ' semana' : ' semanas');
+        const c = state.comercial;
+        el('com_preco').value = c.precoManual && c.preco != null ? c.preco : sugP;
+        el('com_prazo').value = c.prazoManual && c.prazo != null ? c.prazo : sugPz;
+    }
+    function fillComercial() {
+        const c = state.comercial;
+        el('com_condicoes').value = c.condicoes;
+        el('com_validade').value = c.validade;
+        el('com_incluir_preco').checked = c.incluirPreco;
+        el('com_incluir_prazo').checked = c.incluirPrazo;
+        refreshComercialSuggestion();
+    }
+
+    /* =======================================================================
+       PROPOSTA — montar documento
+       ======================================================================= */
+    function labelFuncionarios(v) { return v || '—'; }
+
+    function answerText(p) {
+        const v = state.respostas[p.id];
+        if (v == null || v === '' || (Array.isArray(v) && !v.length)) return null;
+        return Array.isArray(v) ? v.join(', ') : String(v);
+    }
+
+    function renderProposta() {
+        const n = state.negocio;
+        const mods = selectedModulos();
+        const c = state.comercial;
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const precoFinal = (c.precoManual && c.preco != null) ? c.preco : calcPreco();
+        const prazoFinal = (c.prazoManual && c.prazo != null) ? c.prazo : calcPrazo();
+
+        const problemasSel = PROBLEMAS.filter(p => state.problemas.includes(p.id));
+
+        const negocioLinhas = [
+            ['Segmento', n.nicho], ['Porte', labelFuncionarios(n.funcionarios) + (n.funcionarios ? ' funcionários' : '')],
+            ['Faturamento', n.faturamento], ['Volume mensal', n.volume],
+            ['Ferramentas atuais', n.ferramentas]
+        ].filter(([, v]) => v);
+
+        const html = `
+        <div class="doc">
+            <div class="doc-head">
+                <div>
+                    <div class="text-xs font-bold uppercase tracking-wide" style="color:var(--brand)">${esc(EMPRESA.nome)}</div>
+                    <h1>Proposta de Desenvolvimento</h1>
+                    ${EMPRESA.subtitulo ? `<div class="muted kv">${esc(EMPRESA.subtitulo)}</div>` : ''}
+                </div>
+                <div class="text-right kv muted">
+                    <div><strong>Data:</strong> ${hoje}</div>
+                    ${n.vendedor ? `<div><strong>Consultor:</strong> ${esc(n.vendedor)}</div>` : ''}
+                    ${c.validade ? `<div><strong>Validade:</strong> ${esc(c.validade)}</div>` : ''}
+                </div>
+            </div>
+
+            <div class="kv"><strong>Preparada para:</strong> ${esc(n.cliente || '—')}</div>
+
+            ${negocioLinhas.length ? `
+            <h2>Resumo do negócio</h2>
+            <ul>${negocioLinhas.map(([k, v]) => `<li><strong>${k}:</strong> ${esc(v)}</li>`).join('')}</ul>` : ''}
+
+            ${(problemasSel.length || state.problemasOutros) ? `
+            <h2>Desafios identificados</h2>
+            <ul>
+                ${problemasSel.map(p => `<li>${esc(p.label)}</li>`).join('')}
+                ${state.problemasOutros ? `<li>${esc(state.problemasOutros)}</li>` : ''}
+            </ul>` : ''}
+
+            <h2>Solução proposta</h2>
+            ${mods.length ? mods.map(m => {
+                const respostas = m.perguntas.map(p => ({ p, a: answerText(p) })).filter(x => x.a);
+                return `
+                <div class="mod-block avoid-break">
+                    <h3><i class="fas ${m.icon}" style="color:var(--brand)"></i>&nbsp; ${esc(m.nome)}</h3>
+                    <div class="kv">${esc(m.descricao)}</div>
+                    <div class="qa"><span class="q">Resultado esperado:</span> ${esc(m.resultadoEsperado)}</div>
+                    ${respostas.length ? `<div class="qa">${respostas.map(x => `<div><span class="q">${esc(x.p.label)}:</span> ${esc(x.a)}</div>`).join('')}</div>` : ''}
+                </div>`;
+            }).join('') : '<div class="muted kv">Nenhum módulo selecionado.</div>'}
+
+            ${mods.length ? `
+            <h2>Resultados esperados</h2>
+            <ul>${mods.map(m => `<li>${esc(m.resultadoEsperado)}</li>`).join('')}</ul>
+
+            <h2>Limitações / fora do escopo</h2>
+            <ul>${mods.map(m => `<li>${esc(m.limitacoes)}</li>`).join('')}</ul>` : ''}
+
+            ${c.incluirPreco ? `
+            <h2>Investimento</h2>
+            <div class="price-box avoid-break">
+                <div>
+                    <div class="muted kv">Valor do desenvolvimento</div>
+                    ${c.condicoes ? `<div class="kv" style="margin-top:.3rem"><strong>Condições:</strong> ${esc(c.condicoes)}</div>` : ''}
+                </div>
+                <div class="big-price">${brl(precoFinal)}</div>
+            </div>` : ''}
+
+            ${c.incluirPrazo ? `
+            <h2>Prazo de entrega</h2>
+            <p class="kv">Estimativa de <strong>${prazoFinal} ${prazoFinal === 1 ? 'semana' : 'semanas'}</strong> a partir da assinatura, sujeita ao alinhamento final de escopo.</p>` : ''}
+
+            <h2>Próximos passos</h2>
+            <ul>
+                <li>Validação e aprovação desta proposta.</li>
+                <li>Alinhamento técnico detalhado e cronograma.</li>
+                <li>Início do desenvolvimento.</li>
+            </ul>
+
+            <div style="margin-top:2.5rem; padding-top:1rem; border-top:1px solid #e2e8f0" class="muted kv">
+                ${esc(EMPRESA.nome)}${EMPRESA.contato ? ` · ${esc(EMPRESA.contato)}` : ''}
+            </div>
+        </div>`;
+
+        el('proposta').innerHTML = html;
+        el('preview-wrap').innerHTML = html;
+    }
+
+    /* =======================================================================
+       NAVEGAÇÃO
+       ======================================================================= */
+    function renderStepper() {
+        el('stepper').innerHTML = STEP_LABELS.map((label, i) => {
+            const n = i + 1;
+            const cls = n === stepAtual ? 'active' : (n < stepAtual ? 'done' : '');
+            const inner = n < stepAtual ? '<i class="fas fa-check"></i>' : n;
+            return `<div class="step-node ${cls}" data-goto="${n}">
+                <div class="step-circle">${inner}</div>
+                <div class="step-label">${label}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function showStep(n) {
+        stepAtual = n;
+        document.querySelectorAll('.step-panel').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === n));
+        renderStepper();
+        // preencher a etapa a partir do state
+        if (n === 1) fillNegocio();
+        else if (n === 2) fillProblemas();
+        else if (n === 3) fillModulos();
+        else if (n === 4) renderDetalhamento();
+        else if (n === 5) fillComercial();
+        else if (n === 6) renderProposta();
+        // botões
+        el('btn-prev').style.visibility = n === 1 ? 'hidden' : 'visible';
+        el('btn-next').innerHTML = n === TOTAL_STEPS
+            ? '<i class="fas fa-check"></i> Concluído'
+            : 'Avançar <i class="fas fa-arrow-right"></i>';
+        el('btn-next').style.visibility = n === TOTAL_STEPS ? 'hidden' : 'visible';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function validateStep(n) {
+        if (n === 1) {
+            commitNegocio();
+            if (!state.negocio.cliente) { alertField('neg_cliente', 'Informe o nome do cliente.'); return false; }
+            if (!state.negocio.vendedor) { alertField('neg_vendedor', 'Informe o nome do vendedor.'); return false; }
+        }
+        if (n === 3) {
+            commitModulos();
+            if (!state.modulos.length) {
+                el('modulos-empty-warn').classList.remove('hidden');
+                return false;
             }
-        };
+        }
+        return true;
+    }
+    function alertField(id, msg) {
+        const e = el(id);
+        e.focus();
+        e.classList.add('!border-red-400', '!ring-2', '!ring-red-100');
+        setTimeout(() => e.classList.remove('!border-red-400', '!ring-2', '!ring-red-100'), 2000);
+    }
 
-        const checkConnectionState = async () => {
-            try {
-                const response = await fetch(`${API_URL}/instance/connectionState/${INSTANCE_NAME}`, { headers: { 'apikey': API_KEY } });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const data = await response.json();
+    function next() {
+        if (!validateStep(stepAtual)) return;
+        commitCurrent();
+        if (stepAtual < TOTAL_STEPS) showStep(stepAtual + 1);
+    }
+    function prev() {
+        commitCurrent();
+        if (stepAtual > 1) showStep(stepAtual - 1);
+    }
 
-                if (data.instance?.state === 'open') {
-                    updateConnectionStatusUI('Conectado');
-                } else if(connectionStatusText.textContent !== 'Aguardando QR Code') {
-                    // Evita sobrescrever o status enquanto o QR code está na tela
-                    updateConnectionStatusUI('Desconectado');
-                }
-            } catch (error) {
-                console.error("Erro ao verificar status:", error);
-                updateConnectionStatusUI('Erro', 'Falha ao verificar status.');
-            }
-        };
+    /* =======================================================================
+       LISTENERS
+       ======================================================================= */
+    el('btn-next').addEventListener('click', next);
+    el('btn-prev').addEventListener('click', prev);
 
-        connectBtn.addEventListener('click', fetchQRCode);
-
-        disconnectBtn.addEventListener('click', async () => {
-            updateConnectionStatusUI('Desconectado', 'Desconectando...');
-            try {
-                await fetch(`${API_URL}/instance/logout/${INSTANCE_NAME}`, { method: 'DELETE', headers: { 'apikey': API_KEY } });
-                updateConnectionStatusUI('Desconectado', 'Sessão encerrada.');
-            } catch (error) {
-                console.error("Erro ao desconectar:", error);
-                updateConnectionStatusUI('Erro', 'Falha ao desconectar.');
-            }
-        });
-
-        // --- INICIALIZAÇÃO ---
-        const init = () => {
-            fetchAgendamentos();
-            setupRealtime();
-            checkConnectionState();
-            setInterval(checkConnectionState, 30000); // Verifica a cada 30 segundos
-        };
-
-        init();
+    // stepper: permite navegar clicando (só para trás ou atual, para não pular validações à frente)
+    el('stepper').addEventListener('click', e => {
+        const node = e.target.closest('[data-goto]');
+        if (!node) return;
+        const target = Number(node.dataset.goto);
+        if (target < stepAtual) { commitCurrent(); showStep(target); }
+        else if (target > stepAtual) { // avançar validando cada passo
+            for (let s = stepAtual; s < target; s++) { if (!validateStep(s)) { showStep(s); return; } }
+            commitCurrent(); showStep(target);
+        }
     });
-    </script>
+
+    // módulos: mudar seleção re-renderiza detalhamento e atualiza sugestão
+    el('modulos-grid').addEventListener('change', () => {
+        commitModulos();
+        el('modulos-empty-warn').classList.toggle('hidden', state.modulos.length > 0);
+        renderDetalhamento();
+        saveState();
+    });
+
+    // detalhamento: salvar respostas ao vivo (sem re-render, para não perder foco)
+    el('detalhamento-container').addEventListener('input', () => { commitDetalhamento(); saveState(); });
+    el('detalhamento-container').addEventListener('change', () => { commitDetalhamento(); saveState(); });
+
+    // problemas
+    el('problemas-grid').addEventListener('change', () => { commitProblemas(); saveState(); });
+    el('prob_outros').addEventListener('input', () => { commitProblemas(); saveState(); });
+
+    // negócio: salvar ao vivo
+    ['neg_cliente', 'neg_nicho', 'neg_funcionarios', 'neg_faturamento', 'neg_volume', 'neg_ferramentas', 'neg_vendedor']
+        .forEach(id => el(id).addEventListener('input', () => { commitNegocio(); saveState(); }));
+
+    // comercial: preço/prazo manuais
+    el('com_preco').addEventListener('input', () => {
+        state.comercial.precoManual = true;
+        state.comercial.preco = el('com_preco').value === '' ? null : Number(el('com_preco').value);
+        saveState();
+    });
+    el('com_prazo').addEventListener('input', () => {
+        state.comercial.prazoManual = true;
+        state.comercial.prazo = el('com_prazo').value === '' ? null : Number(el('com_prazo').value);
+        saveState();
+    });
+    el('btn-usar-sug-preco').addEventListener('click', () => {
+        state.comercial.precoManual = false; state.comercial.preco = null;
+        refreshComercialSuggestion(); saveState();
+    });
+    el('btn-usar-sug-prazo').addEventListener('click', () => {
+        state.comercial.prazoManual = false; state.comercial.prazo = null;
+        refreshComercialSuggestion(); saveState();
+    });
+    ['com_condicoes', 'com_validade', 'com_incluir_preco', 'com_incluir_prazo']
+        .forEach(id => el(id).addEventListener('change', () => { commitComercial(); saveState(); }));
+    el('com_condicoes').addEventListener('input', () => { commitComercial(); saveState(); });
+
+    // gerar PDF
+    el('btn-gerar').addEventListener('click', () => {
+        commitComercial();
+        renderProposta();
+        window.print();
+    });
+
+    // nova proposta / reset
+    el('btn-reset').addEventListener('click', () => {
+        if (!confirm('Isso vai limpar todos os dados desta proposta. Continuar?')) return;
+        state = defaultState();
+        saveState();
+        renderStatic();
+        showStep(1);
+    });
+
+    /* =======================================================================
+       INIT
+       ======================================================================= */
+    renderStatic();
+    showStep(1);
+});
+</script>
 </body>
 </html>
-
